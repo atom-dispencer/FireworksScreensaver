@@ -4,8 +4,15 @@
 #include <chrono>
 #include <iostream>
 #include <random>
+#include <math.h>
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
+
+//
+//
+// There's no seperate header file, so here are the declarations.
+//
+//
 
 enum ParticleType {
     PT_SPARK,
@@ -25,19 +32,32 @@ struct Particle {
     int radius = 0;
     Color color = Color(0xff, 0xff, 0xff, 0xff);
     int children = 0;
+    float timeSinceLastFlame = 0;
 };
 
-const int MAX_PARTICLES = 50;
-Particle PARTICLES[MAX_PARTICLES];
-int currentParticles = 0;
+Color RandomBrightColour();
+void PaintFireworks(HWND hWnd, HDC hdc);
+int RandInRange(int lower, int upper);
+void MoveParticles(HWND hWnd);
+void DeleteParticle(Particle& p);
 
+void ProcessPTSpark(Particle& p);
+void ProcessPTSparkRocket(Particle& p);
+
+void KillPTSpark(Particle& p);
+void KillPTSparkRocket(Particle& p);
+
+const int MAX_ROCKETS = 4;
+const int MAX_PARTICLES = 200;
+Particle PARTICLES[MAX_PARTICLES];
+int currentRockets = 0;
+int currentParticles = 0;
 
 HDC drawHdc = NULL;
 HBITMAP hbmMem = NULL;
 HANDLE hOld = NULL;
 int window_width = 0;
 int window_height = 0;
-
 
 VOID PaintFireworks(HWND hWnd, HDC hdc)
 {
@@ -55,7 +75,26 @@ VOID PaintFireworks(HWND hWnd, HDC hdc)
 }
 
 int RandInRange(int lower, int upper) {
-    return lower + (rand() % (lower - upper));
+    int r = rand();
+
+    if (upper < lower) {
+        int temp = lower;
+        lower = upper;
+        upper = temp;
+    }
+
+    int diff = upper - lower;
+    int n = lower + (r % diff);
+    return n;
+}
+
+void DeleteParticle(Particle& p) {
+    if (p.type == PT_SPARK_ROCKET) {
+        currentRockets--;
+    }
+
+    p.isAlive = false;
+    currentParticles--;
 }
 
 Color RandomBrightColour() {
@@ -82,6 +121,57 @@ Color RandomBrightColour() {
     return Color(0xff, channels[0], channels[1], channels[2]);
 }
 
+void MakePTSparkRocket(Particle& p) {
+    p.vX = RandInRange(-100, 100);
+    p.vY = RandInRange(-300, -150);
+    p.aX = 0;
+    p.aY = 100;
+
+    p.type = PT_SPARK_ROCKET;
+    p.remainingLife = RandInRange(20, 40) / 10.0f;
+    p.radius = 10;
+    p.color = RandomBrightColour();
+    p.children = RandInRange(3, 8);
+}
+
+void ProcessPTSparkRocket(Particle& p) {
+
+}
+
+void ProcessPTSpark(Particle& p) {
+
+}
+
+void KillPTSpark(Particle& p) {
+
+}
+
+void KillPTSparkRocket(Particle& p) {
+    for (int i = 0; i < p.children; i++) {
+        for (Particle& c : PARTICLES) {
+            if (!c.isAlive) {
+                c.isAlive = true;
+                currentParticles++;
+
+                c.pX = p.pX;
+                c.pY = p.pY;
+                c.vX = RandInRange(-200, 200);
+                c.vY = RandInRange(-200, 200);
+                c.aX = 0;
+                c.aY = 100;
+
+                c.type = PT_SPARK;
+                c.remainingLife = 1.0f;
+                c.radius = 5;
+                c.color = p.color;
+                c.children = 0;
+
+                break;
+            }
+        }
+    }
+}
+
 auto lastStep = std::chrono::high_resolution_clock::now();
 void MoveParticles(HWND hWnd) {
     auto thisStep = std::chrono::high_resolution_clock::now();
@@ -96,68 +186,54 @@ void MoveParticles(HWND hWnd) {
 
     for (Particle &p : PARTICLES) {
 
-        // Make particles older
-        if (p.isAlive) {
-            p.remainingLife -= dSecs;
-        }
-
-        // Kill old particles and spawn children
-        if (p.isAlive && p.remainingLife <= 0) {
-            p.isAlive = false;
-            currentParticles--;
-
-            for (int i = 0; i < p.children; i++) {
-                for (Particle& c : PARTICLES) {
-                    if (!c.isAlive) {
-                        // No need to increment currentParticles
-                        // because the space is already allocated
-
-                        c.pX = p.pX;
-                        c.pY = p.pY;
-                        c.vX = RandInRange(-200, 200);
-                        c.vY = RandInRange(-200, 200);
-                        c.aX = 0;
-                        c.aY = 100;
-
-                        c.type = PT_SPARK;
-                        c.isAlive = true;
-                        c.remainingLife = 1.0f;
-                        c.radius = 5;
-                        c.color = p.color;
-                        c.children = 0;
-
-                        break;
-                    }
-                }
-            }
-            continue;
-        }
-
-        // Kill out of bounds particles
-        /*if (p.x < rc.left || p.x > rc.right || p.y < rc.top || p.y > rc.bottom) {
-            p.isAlive = false;
-            continue;
-        }*/
-
         // Create new rockets
-        if (!p.isAlive && MAX_PARTICLES > currentParticles) {
-            currentParticles++;
+        if (!p.isAlive) {
+            if (MAX_ROCKETS > currentRockets) {
 
-            p.pX = RandInRange(rc.left, rc.right);
-            p.pY = rc.bottom-50;
-            p.vX = RandInRange(-50, 50);
-            p.vY = RandInRange(-400, -600);
-            p.aX = 0;
-            p.aY = 100;
+                MakePTSparkRocket(p);
 
-            p.type = PT_SPARK_ROCKET;
-            p.isAlive = true;
-            p.remainingLife = 4.0f;
-            p.radius = 10;
-            p.color = RandomBrightColour();
-            p.children = RandInRange(3, 6);
+                p.pX = RandInRange(rc.left + 200, rc.right - 200);
+                p.pY = rc.bottom + 50;
 
-            currentParticles += p.children;
+                p.isAlive = true;
+                currentRockets += 1;
+                currentParticles += 1;
+            }
+
+            continue;
+        }
+
+        // Make particles older
+        p.remainingLife -= dSecs;
+
+        if (p.pX < rc.left - 50 || p.pX > rc.right + 50 || p.pY < rc.top - 50 || p.pY > rc.bottom + 50) {
+            DeleteParticle(p);
+            continue;
+        }
+
+        // Kill old particles
+        if (p.remainingLife <= 0) {
+            switch (p.type) {
+            case PT_SPARK:
+                KillPTSpark(p);
+                break;
+            case PT_SPARK_ROCKET:
+                KillPTSparkRocket(p);
+                break;
+            }
+
+            DeleteParticle(p);
+            continue;
+        }
+
+        // Process different types of particle
+        switch (p.type) {
+        case PT_SPARK_ROCKET:
+            ProcessPTSparkRocket(p);
+            break;
+        case PT_SPARK:
+            ProcessPTSpark(p);
+            break;
         }
         
         // 
@@ -172,12 +248,11 @@ void MoveParticles(HWND hWnd) {
 
 //
 //
-// WinAPI and Window maintenance.
+// WinAPI initialisation and maintenance.
 //
 // 
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 {
     HWND                hWnd;
@@ -201,18 +276,39 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 
     RegisterClass(&wndClass);
 
-    hWnd = CreateWindow(
-        TEXT("Fireworks"),   // window class name
-        TEXT("Fireworks"),  // window caption
-        WS_OVERLAPPEDWINDOW,      // window style
-        CW_USEDEFAULT,            // initial x position
-        CW_USEDEFAULT,            // initial y position
-        CW_USEDEFAULT,            // initial x size
-        CW_USEDEFAULT,            // initial y size
-        NULL,                     // parent window handle
-        NULL,                     // window menu handle
-        hInstance,                // program instance handle
-        NULL);                    // creation parameters
+    bool isPreview = true;
+    if (isPreview) {
+        // Standard window (preview window)
+        hWnd = CreateWindow(
+            TEXT("Fireworks"),      // window class name
+            TEXT("Fireworks"),      // window caption
+            WS_OVERLAPPEDWINDOW,    // window style
+            CW_USEDEFAULT,          // initial x position
+            CW_USEDEFAULT,          // initial y position
+            CW_USEDEFAULT,          // initial x size
+            CW_USEDEFAULT,          // initial y size
+            NULL,                   // parent window handle
+            NULL,                   // window menu handle
+            hInstance,              // program instance handle
+            NULL);                  // creation parametersWS_POPUP
+    }
+    else {
+        // Full screen borderless (proper screensaver)
+        int w = GetSystemMetrics(SM_CXSCREEN);
+        int h = GetSystemMetrics(SM_CYSCREEN);
+        hWnd = CreateWindow(
+            TEXT("Fireworks"),      // window class name
+            TEXT("Fireworks"),      // window caption
+            WS_POPUP,               // window style
+            0,                      // initial x position
+            0,                      // initial y position
+            w,                      // initial x size
+            h,                      // initial y size
+            NULL,                   // parent window handle
+            NULL,                   // window menu handle
+            hInstance,              // program instance handle
+            NULL);                  // creation parameters
+    }
 
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
@@ -236,6 +332,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
     GdiplusShutdown(gdiplusToken);
     return msg.wParam;
 }
+
+//
+//
+// Window management
+//
+//
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
