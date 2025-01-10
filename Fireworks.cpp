@@ -17,22 +17,23 @@ using namespace Gdiplus;
 enum ParticleType {
     PT_SPARK,
     PT_SPARK_ROCKET,
+    PT_HAZE
 };
 
 struct Particle {
-    float pX;
-    float pY;
-    float vX;
-    float vY;
-    float aX;
-    float aY;
+    float pX = 0;
+    float pY = 0;
+    float vX = 0;
+    float vY = 0;
+    float aX = 0;
+    float aY = 0;
     ParticleType type = PT_SPARK;
     bool isAlive = false;
     float remainingLife = 0;
     int radius = 0;
     Color color = Color(0xff, 0xff, 0xff, 0xff);
     int children = 0;
-    float timeSinceLastFlame = 0;
+    float timeSinceLastEmission = 0;
 };
 
 Color RandomBrightColour();
@@ -41,13 +42,19 @@ int RandInRange(int lower, int upper);
 void MoveParticles(HWND hWnd);
 void DeleteParticle(Particle& p);
 
-void ProcessPTSpark(Particle& p);
-void ProcessPTSparkRocket(Particle& p);
+void MakePTSpark(Particle& p);
+void MakePTSparkRocket(Particle& p);
+void MakePTHaze(Particle& p);
+
+void ProcessPTSpark(Particle& p, float dSecs);
+void ProcessPTSparkRocket(Particle& p, float dSecs);
+void ProcessPTHaze(Particle& p, float dSecs);
 
 void KillPTSpark(Particle& p);
 void KillPTSparkRocket(Particle& p);
+void KillPTHaze(Particle& p);
 
-const int MAX_ROCKETS = 4;
+const int MAX_ROCKETS = 1;
 const int MAX_PARTICLES = 200;
 Particle PARTICLES[MAX_PARTICLES];
 int currentRockets = 0;
@@ -121,55 +128,132 @@ Color RandomBrightColour() {
     return Color(0xff, channels[0], channels[1], channels[2]);
 }
 
+Particle& ReviveDeadParticle() {
+    for (Particle& c : PARTICLES) {
+        if (!c.isAlive) {
+            c.isAlive = true;
+            currentParticles++;
+            return c;
+        }
+    }
+
+    // I hope this never happens
+    return PARTICLES[RandInRange(0, MAX_PARTICLES)];
+}
+
 void MakePTSparkRocket(Particle& p) {
+    p.type = PT_SPARK_ROCKET;
+
     p.vX = RandInRange(-100, 100);
-    p.vY = RandInRange(-300, -150);
+    p.vY = RandInRange(-400, -250);
     p.aX = 0;
     p.aY = 100;
 
-    p.type = PT_SPARK_ROCKET;
     p.remainingLife = RandInRange(20, 40) / 10.0f;
     p.radius = 10;
     p.color = RandomBrightColour();
-    p.children = RandInRange(3, 8);
+    p.children = RandInRange(5, 12);
 }
 
-void ProcessPTSparkRocket(Particle& p) {
+void MakePTSpark(Particle& p) {
+    p.type = PT_SPARK;
 
+    p.vX = RandInRange(-200, 200);
+    p.vY = RandInRange(-200, 200);
+    p.aX = 0;
+    p.aY = 100;
+
+    p.remainingLife = 1.0f;
+    p.radius = 3;
+    p.children = 0;
 }
 
-void ProcessPTSpark(Particle& p) {
+void MakePTHaze(Particle& p) {
+    p.type = PT_HAZE;
 
+    p.vX = 0;
+    p.vY = 0;
+    p.aX = 0;
+    p.aY = 10;
+
+    p.remainingLife = 3.0f;
+    p.radius = 3;
+    p.children = 0;
+}
+
+void ProcessPTSparkRocket(Particle& p, float dSecs) {
+    if (p.timeSinceLastEmission > 0.05f) {
+        p.timeSinceLastEmission = 0;
+
+        Particle& s = ReviveDeadParticle();
+        MakePTHaze(s);
+        s.pX = p.pX;
+        s.pY = p.pY;
+        s.vX = -0.75 * p.vX;
+        s.vY = -0.75 * p.vY;
+        s.aX = 0;
+        s.aY = 0;
+        s.color = p.color;
+    }
+    p.timeSinceLastEmission += dSecs;
+}
+
+void ProcessPTSpark(Particle& spark, float dSecs) {
+    spark.aX = -1.6 * spark.vX;
+    spark.aY = 60;
+
+    if (spark.remainingLife < 0.5) {
+        float factor = 2 * spark.remainingLife;
+
+        // Remaining life is < 1
+        BYTE bAlpha = (BYTE)(255 * factor * factor);
+        int iAlpha = (int)bAlpha;
+        int siAlpha = iAlpha << 24;
+        ARGB _rgb = spark.color.GetValue() & 0x00ffffff;
+        ARGB argb = _rgb | siAlpha;
+        spark.color.SetValue(argb);
+    }
+
+    if (spark.timeSinceLastEmission > 0.1) {
+        spark.timeSinceLastEmission = 0;
+        Particle& haze = ReviveDeadParticle();
+        MakePTHaze(haze);
+        haze.pX = spark.pX;
+        haze.pY = spark.pY;
+        haze.color = spark.color;
+    }
+
+    spark.timeSinceLastEmission += dSecs;
+}
+
+void ProcessPTHaze(Particle& p, float dSecs) {
+    float factor = p.remainingLife / 3.0f;
+
+    BYTE bAlpha = (BYTE)(255 * factor * factor);
+    int iAlpha = (int)bAlpha;
+    int siAlpha = iAlpha << 24;
+    ARGB _rgb = p.color.GetValue() & 0x00ffffff;
+    ARGB argb = _rgb | siAlpha;
+    p.color.SetValue(argb);
 }
 
 void KillPTSpark(Particle& p) {
-
 }
 
-void KillPTSparkRocket(Particle& p) {
-    for (int i = 0; i < p.children; i++) {
-        for (Particle& c : PARTICLES) {
-            if (!c.isAlive) {
-                c.isAlive = true;
-                currentParticles++;
+void KillPTSparkRocket(Particle& rocket) {
+    for (int i = 0; i < rocket.children; i++) {
+        Particle& spark = ReviveDeadParticle();
+        MakePTSpark(spark);
+        spark.color = rocket.color;
+        spark.pX = rocket.pX;
+        spark.pY = rocket.pY;
 
-                c.pX = p.pX;
-                c.pY = p.pY;
-                c.vX = RandInRange(-200, 200);
-                c.vY = RandInRange(-200, 200);
-                c.aX = 0;
-                c.aY = 100;
-
-                c.type = PT_SPARK;
-                c.remainingLife = 1.0f;
-                c.radius = 5;
-                c.color = p.color;
-                c.children = 0;
-
-                break;
-            }
-        }
+        spark.vX += 0.5f * rocket.vX;
+        spark.vY += 0.5f * rocket.vX;
     }
+}
+
+void KillPTHaze(Particle& p) {
 }
 
 auto lastStep = std::chrono::high_resolution_clock::now();
@@ -220,6 +304,9 @@ void MoveParticles(HWND hWnd) {
             case PT_SPARK_ROCKET:
                 KillPTSparkRocket(p);
                 break;
+            case PT_HAZE:
+                KillPTHaze(p);
+                break;
             }
 
             DeleteParticle(p);
@@ -229,10 +316,13 @@ void MoveParticles(HWND hWnd) {
         // Process different types of particle
         switch (p.type) {
         case PT_SPARK_ROCKET:
-            ProcessPTSparkRocket(p);
+            ProcessPTSparkRocket(p, dSecs);
             break;
         case PT_SPARK:
-            ProcessPTSpark(p);
+            ProcessPTSpark(p, dSecs);
+            break;
+        case PT_HAZE:
+            ProcessPTHaze(p, dSecs);
             break;
         }
         
