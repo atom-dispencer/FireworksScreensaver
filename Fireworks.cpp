@@ -81,17 +81,37 @@ VOID PaintFireworks(HWND hWnd, HDC hdc)
         
         Rect r = Rect(p.pX - p.radius, p.pY - p.radius, 2 * p.radius, 2 * p.radius);
 
-        //SolidBrush brush(p.color);
-        //graphics.FillEllipse(&brush, r);
-
         GraphicsPath path(Gdiplus::FillModeAlternate);
         path.AddEllipse(r);
         PathGradientBrush brush(&path);
+        
+        // The centre color is the outer color but 75% whiter
+        ARGB argbCentre = p.color.GetValue();
+        int red = argbCentre   & 0x00110000;
+        int green = argbCentre & 0x00001100;
+        int blue = argbCentre  & 0x00000011;
+        if (red == 0) {
+            // Red is 0
+            argbCentre |= 0x00C00000;
+        }
+        else if (green == 0) {
+            // Green is 0
+            argbCentre |= 0x0000C000;
+        }
+        else if (blue == 0) {
+            // Blue is 0
+            argbCentre |= 0x000000C0;
+        }
+        Color centre = Color(argbCentre);
 
-        brush.SetCenterColor(p.color);
-        Color colors[1] = { Color::Transparent };
-        int COUNT = 1;
-        brush.SetSurroundColors(colors, &COUNT);
+        // Impose a rough inverse square law
+        Color quarter = Color(p.color.GetValue() & 0x40111111);
+
+        Color colors[3] = { Color::Transparent, p.color, centre };
+        float ratios[3] = { 0, 0.80, 1 };
+        int COUNT = 3;
+        brush.SetInterpolationColors(colors, ratios, COUNT);
+
         graphics.FillEllipse(&brush, r);
     }
 }
@@ -120,7 +140,7 @@ void DeleteParticle(Particle& p) {
 }
 
 Color RandomBrightColour() {
-    int offset = RandInRange(0, 2);
+    int offset = RandInRange(0, 3);
     int channels[3] = { 0xff, 0xff, 0xff };
 
     for (int i = 0; i < 3; i++) {
@@ -164,8 +184,8 @@ void MakePTSparkRocket(Particle& p) {
     p.aX = 0;
     p.aY = 100;
 
-    p.remainingLife = RandInRange(20, 40) / 10.0f;
-    p.radius = 20;
+    p.remainingLife = RandInRange(10, 40) / 10.0f;
+    p.radius = 15;
     p.color = RandomBrightColour();
     p.children = RandInRange(5, 12);
 }
@@ -179,7 +199,7 @@ void MakePTSpark(Particle& p) {
     p.aY = 100;
 
     p.remainingLife = 1.0f;
-    p.radius = 6;
+    p.radius = 9;
     p.children = 0;
 }
 
@@ -189,10 +209,10 @@ void MakePTHaze(Particle& p) {
     p.vX = 0;
     p.vY = 0;
     p.aX = 0;
-    p.aY = 10;
+    p.aY = 8;
 
     p.remainingLife = 3.0f;
-    p.radius = 10;
+    p.radius = 5;
     p.children = 0;
 }
 
@@ -274,6 +294,7 @@ void KillPTSparkRocket(Particle& rocket) {
 void KillPTHaze(Particle& p) {
 }
 
+float timeSinceRocketCount = 0;
 auto lastStep = std::chrono::high_resolution_clock::now();
 void MoveParticles(HWND hWnd) {
     auto thisStep = std::chrono::high_resolution_clock::now();
@@ -285,6 +306,21 @@ void MoveParticles(HWND hWnd) {
         hWnd,
         &rc
     );
+
+    // Sometimes the rocket count gets out of sync?
+    // No idea how that happens, but here's a bodge for it
+    int rocketCheck = 0;
+    if (timeSinceRocketCount > 5.0f) {
+        for (Particle& p : PARTICLES) {
+            if (p.type == PT_SPARK_ROCKET && p.isAlive) {
+                rocketCheck++;
+            }
+        }
+
+        currentRockets = rocketCheck;
+        timeSinceRocketCount = 0;
+    }
+    timeSinceRocketCount += dSecs;
 
     for (Particle &p : PARTICLES) {
 
@@ -486,6 +522,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         // Copy the drawing buffer into the render buffer
         BitBlt(renderHdc, 0, 0, window_width, window_height, drawHdc, 0, 0, SRCCOPY);
+        
+        // In preview mode, if the PC sleeps here, this call hangs.
         SelectObject(drawHdc, hOld);
 
         EndPaint(hWnd, &ps);
