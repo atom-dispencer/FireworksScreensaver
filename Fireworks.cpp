@@ -54,6 +54,12 @@ void KillPTSpark(Particle& p);
 void KillPTSparkRocket(Particle& p);
 void KillPTHaze(Particle& p);
 
+//
+//
+// Implementations and stuff
+//
+//
+
 const int MAX_ROCKETS = 1;
 const int MAX_PARTICLES = 200;
 Particle PARTICLES[MAX_PARTICLES];
@@ -279,15 +285,33 @@ void KillPTSpark(Particle& p) {
 }
 
 void KillPTSparkRocket(Particle& rocket) {
+
+    int xTotal = 0;
+    int yTotal = 0;
+
     for (int i = 0; i < rocket.children; i++) {
         Particle& spark = ReviveDeadParticle();
         MakePTSpark(spark);
+
+        // Always try to push the total towards zero to make more even
+        // explosions.
+        // If going in same x direction, flip vX
+        if (xTotal * spark.vX > 0) {
+            spark.vX *= -1;
+        }
+        // If going in same y direction, flip vY
+        if (yTotal * spark.vY > 0) {
+            spark.vY *= -1;
+        }
+        xTotal += spark.vX;
+        yTotal += spark.vY;
+
         spark.color = rocket.color;
         spark.pX = rocket.pX;
         spark.pY = rocket.pY;
 
         spark.vX += 0.5f * rocket.vX;
-        spark.vY += 0.5f * rocket.vX;
+        spark.vY += 0.5f * rocket.vY;
     }
 }
 
@@ -397,12 +421,32 @@ void MoveParticles(HWND hWnd) {
 // 
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
+INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, INT iCmdShow)
 {
     HWND                hWnd;
     WNDCLASS            wndClass;
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR           gdiplusToken;
+
+    bool isPreview = true;
+    if (strcmp(lpCmdLine, "/s") == 0) {
+        isPreview = false;
+    }
+    else if (strcmp(lpCmdLine, "/c") == 0) {
+        MessageBox(nullptr, L"Configuration options are not yet supported.\nUse the /? option for help.", L"Fireworks Screensaver Configuration", MB_OK);
+        return 0;
+    }
+    else if (strcmp(lpCmdLine, "/p") == 0) {
+        isPreview = false;
+    }
+    else if (strcmp(lpCmdLine, "/d") == 0) {
+        isPreview = false;
+    }
+    else if (strcmp(lpCmdLine, "/?") == 0) {
+        MessageBox(nullptr, L"/s - Run screensaver\n/c - Open configuration\n/p, /d - Preview/debug the screensaver\n/? - Show this message\n\nFireworks Screesaver, by Adam Spencer.\nhttps://github.com/atom-dispencer/FireworksScreensaver", L"Fireworks Screensaver", MB_OK);
+        return 0;
+    }
+
 
     // Initialize GDI+.
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
@@ -419,8 +463,9 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
     wndClass.lpszClassName = TEXT("Fireworks");
 
     RegisterClass(&wndClass);
+    
+    
 
-    bool isPreview = true;
     if (isPreview) {
         // Standard window (preview window)
         hWnd = CreateWindow(
