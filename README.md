@@ -1,7 +1,5 @@
 ﻿# 🎆 Fireworks Screensaver 🎆
 
-firework.mov
-
 ![gif](fireworks.gif)
 
 A screensaver for Windows which makes pretty fireworks 😊🎆
@@ -26,6 +24,9 @@ The screensaver automatically closes when you click any button, but *not*
 ## Options
 
 **/?** - Show a help dialogue with these options.
+
 **/s** - Run the screensaver full screen.
+
 **/c** - Show a configuration dialogue. No options currently supported.
+
 **/p** or **/d** - Run the screensaver in preview/debug mode (windowed.)
