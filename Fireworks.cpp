@@ -78,9 +78,20 @@ VOID PaintFireworks(HWND hWnd, HDC hdc)
         if (!p.isAlive) {
             continue;
         }
-
-        SolidBrush brush(p.color);
+        
         Rect r = Rect(p.pX - p.radius, p.pY - p.radius, 2 * p.radius, 2 * p.radius);
+
+        //SolidBrush brush(p.color);
+        //graphics.FillEllipse(&brush, r);
+
+        GraphicsPath path(Gdiplus::FillModeAlternate);
+        path.AddEllipse(r);
+        PathGradientBrush brush(&path);
+
+        brush.SetCenterColor(p.color);
+        Color colors[1] = { Color::Transparent };
+        int COUNT = 1;
+        brush.SetSurroundColors(colors, &COUNT);
         graphics.FillEllipse(&brush, r);
     }
 }
@@ -154,7 +165,7 @@ void MakePTSparkRocket(Particle& p) {
     p.aY = 100;
 
     p.remainingLife = RandInRange(20, 40) / 10.0f;
-    p.radius = 10;
+    p.radius = 20;
     p.color = RandomBrightColour();
     p.children = RandInRange(5, 12);
 }
@@ -168,7 +179,7 @@ void MakePTSpark(Particle& p) {
     p.aY = 100;
 
     p.remainingLife = 1.0f;
-    p.radius = 3;
+    p.radius = 6;
     p.children = 0;
 }
 
@@ -181,25 +192,28 @@ void MakePTHaze(Particle& p) {
     p.aY = 10;
 
     p.remainingLife = 3.0f;
-    p.radius = 3;
+    p.radius = 10;
     p.children = 0;
 }
 
-void ProcessPTSparkRocket(Particle& p, float dSecs) {
-    if (p.timeSinceLastEmission > 0.05f) {
-        p.timeSinceLastEmission = 0;
+void ProcessPTSparkRocket(Particle& rocket, float dSecs) {
+
+    rocket.vX += RandInRange(-30, 30) / 10.0f;
+
+    if (rocket.timeSinceLastEmission > 0.05f) {
+        rocket.timeSinceLastEmission = 0;
 
         Particle& s = ReviveDeadParticle();
         MakePTHaze(s);
-        s.pX = p.pX;
-        s.pY = p.pY;
-        s.vX = -0.75 * p.vX;
-        s.vY = -0.75 * p.vY;
+        s.pX = rocket.pX;
+        s.pY = rocket.pY;
+        s.vX = -0.75 * rocket.vX;
+        s.vY = -0.75 * rocket.vY;
         s.aX = 0;
         s.aY = 0;
-        s.color = p.color;
+        s.color = rocket.color;
     }
-    p.timeSinceLastEmission += dSecs;
+    rocket.timeSinceLastEmission += dSecs;
 }
 
 void ProcessPTSpark(Particle& spark, float dSecs) {
@@ -233,7 +247,7 @@ void ProcessPTSpark(Particle& spark, float dSecs) {
 void ProcessPTHaze(Particle& p, float dSecs) {
     float factor = p.remainingLife / 3.0f;
 
-    BYTE bAlpha = (BYTE)(255 * factor * factor);
+    BYTE bAlpha = (BYTE)(255 * 0.5f * factor * factor);
     int iAlpha = (int)bAlpha;
     int siAlpha = iAlpha << 24;
     ARGB _rgb = p.color.GetValue() & 0x00ffffff;
