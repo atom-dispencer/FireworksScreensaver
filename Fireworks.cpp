@@ -66,15 +66,12 @@ HANDLE hOld = NULL;
 int window_width = 0;
 int window_height = 0;
 
-VOID PaintFireworks(HWND hWnd, HDC hdc, HBITMAP hbmMem)
+VOID PaintFireworks(HWND hWnd, HDC hdc)
 {
     Graphics graphics(hdc);
 
     RECT rc;
-    GetClientRect(
-        hWnd,
-        &rc
-    );
+    GetClientRect(hWnd, &rc);
 
     graphics.Clear(Gdiplus::Color::Black);
     for (Particle const &p : PARTICLES) {
@@ -457,19 +454,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         renderHdc = BeginPaint(hWnd, &ps);
 
         RECT rc;
-        GetClientRect(
-            hWnd,
-            &rc
-        );
+        GetClientRect(hWnd, &rc);
 
-        // Update the window size.
-        // It's a screensaver so this shouldn't change
-        if (window_width == 0) {
-            window_width = rc.right - rc.left;
-        }
-        if (window_height == 0) {
-            window_height = rc.bottom - rc.top;
-        }
+        window_width = rc.right - rc.left;
+        window_height = rc.bottom - rc.top;
 
         // Get handles for a swap buffer and bitmap if they don't exist
         if (drawHdc == NULL) {
@@ -480,7 +468,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         hOld = SelectObject(drawHdc, hbmMem);
 
-        PaintFireworks(hWnd, drawHdc, hbmMem);
+        PaintFireworks(hWnd, drawHdc);
 
         // Copy the drawing buffer into the render buffer
         BitBlt(renderHdc, 0, 0, window_width, window_height, drawHdc, 0, 0, SRCCOPY);
