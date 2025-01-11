@@ -437,10 +437,10 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, INT iCmdShow
         return 0;
     }
     else if (strcmp(lpCmdLine, "/p") == 0) {
-        isPreview = false;
+        isPreview = true;
     }
     else if (strcmp(lpCmdLine, "/d") == 0) {
-        isPreview = false;
+        isPreview = true;
     }
     else if (strcmp(lpCmdLine, "/?") == 0) {
         MessageBox(nullptr, L"/s - Run screensaver\n/c - Open configuration\n/p, /d - Preview/debug the screensaver\n/? - Show this message\n\nFireworks Screesaver, by Adam Spencer.\nhttps://github.com/atom-dispencer/FireworksScreensaver", L"Fireworks Screensaver", MB_OK);
