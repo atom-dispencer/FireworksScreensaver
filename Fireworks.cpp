@@ -71,7 +71,11 @@ HBITMAP hbmMem = NULL;
 HANDLE hOld = NULL;
 int window_width = 0;
 int window_height = 0;
+bool isPreview = true;
 
+float frameTimes[100] = { 0 };
+int frameTimeIndex = 0;
+float frameTime;
 VOID PaintFireworks(HWND hWnd, HDC hdc)
 {
     Graphics graphics(hdc);
@@ -80,6 +84,39 @@ VOID PaintFireworks(HWND hWnd, HDC hdc)
     GetClientRect(hWnd, &rc);
 
     graphics.Clear(Gdiplus::Color::Black);
+
+    if (isPreview) {
+
+        if (frameTimeIndex >= 100) {
+            frameTimeIndex = 0;
+            for (float f : frameTimes) {
+                frameTime += f;
+            }
+            frameTime /= 100;
+        }
+
+        // Performance metric
+        WCHAR frameTimeBuffer[32] = {};
+        const Font myFont(L"Arial", 16);
+        const PointF origin(100.0f, 100.0f);
+        const SolidBrush blackBrush(Color(255, 255, 255, 255));
+
+        swprintf(frameTimeBuffer, 32, L"%fms\n%ffps", frameTime * 1000, 1 / frameTime);
+        graphics.DrawString(
+            frameTimeBuffer,
+            32,
+            &myFont,
+            origin,
+            &blackBrush
+        );
+    }
+
+    bool drawn[MAX_PARTICLES] = { };
+
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+
+    }
+
     for (Particle const &p : PARTICLES) {
         if (!p.isAlive) {
             continue;
@@ -325,6 +362,10 @@ void MoveParticles(HWND hWnd) {
     float dSecs = std::chrono::duration_cast<std::chrono::nanoseconds>(thisStep - lastStep).count() * 1.0e-9;
     lastStep = thisStep;
 
+    if (isPreview) {
+        frameTimes[frameTimeIndex++] = dSecs;
+    }
+
     RECT rc;
     GetClientRect(
         hWnd,
@@ -428,7 +469,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, INT iCmdShow
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR           gdiplusToken;
 
-    bool isPreview = true;
+    isPreview = true;
     if (strcmp(lpCmdLine, "/s") == 0) {
         isPreview = false;
     }
