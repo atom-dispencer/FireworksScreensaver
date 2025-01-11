@@ -31,7 +31,7 @@ struct Particle {
     bool isAlive = false;
     float remainingLife = 0;
     int radius = 0;
-    Color color = Color(0xff, 0xff, 0xff, 0xff);
+    Color color = Gdiplus::Color(0xff, 0xff, 0xff, 0xff);
     int children = 0;
     float timeSinceLastEmission = 0;
 };
@@ -66,18 +66,25 @@ HANDLE hOld = NULL;
 int window_width = 0;
 int window_height = 0;
 
-VOID PaintFireworks(HWND hWnd, HDC hdc)
+VOID PaintFireworks(HWND hWnd, HDC hdc, HBITMAP hbmMem)
 {
     Graphics graphics(hdc);
 
-    graphics.Clear(Color::Black);
+    RECT rc;
+    GetClientRect(
+        hWnd,
+        &rc
+    );
+
+    graphics.Clear(Gdiplus::Color::Black);
     for (Particle const &p : PARTICLES) {
         if (!p.isAlive) {
             continue;
         }
 
-        Pen pen(p.color);
-        graphics.DrawEllipse(&pen, Rect(p.pX - p.radius, p.pY - p.radius, 10 + p.radius, 10 + p.radius));
+        SolidBrush brush(p.color);
+        Rect r = Rect(p.pX - p.radius, p.pY - p.radius, 2 * p.radius, 2 * p.radius);
+        graphics.FillEllipse(&brush, r);
     }
 }
 
@@ -473,7 +480,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         hOld = SelectObject(drawHdc, hbmMem);
 
-        PaintFireworks(hWnd, drawHdc);
+        PaintFireworks(hWnd, drawHdc, hbmMem);
 
         // Copy the drawing buffer into the render buffer
         BitBlt(renderHdc, 0, 0, window_width, window_height, drawHdc, 0, 0, SRCCOPY);
