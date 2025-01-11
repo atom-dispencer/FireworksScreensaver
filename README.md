@@ -6,6 +6,9 @@ firework.mov
 
 A screensaver for Windows which makes pretty fireworks 😊🎆
 
+This was somewhat inspired by a [Dave's Garage video](https://www.youtube.com/watch?v=-foAV_zU2as)
+   about making a Matrix-style screensaver for the PDP-11/83.
+
 ## Usage
 
 1) Grab `Fireworks.scr` from the Releases page (or build it yourself).
@@ -16,3 +19,13 @@ A screensaver for Windows which makes pretty fireworks 😊🎆
 
 I suggest turning the wait down as low as possible so you get to see the
    fireworks most often!
+
+The screensaver automatically closes when you click any button, but *not*
+   if you just move the mouse because I personally find that annoying.
+
+## Options
+
+**/?** - Show a help dialogue with these options.
+**/s** - Run the screensaver full screen.
+**/c** - Show a configuration dialogue. No options currently supported.
+**/p** or **/d** - Run the screensaver in preview/debug mode (windowed.)

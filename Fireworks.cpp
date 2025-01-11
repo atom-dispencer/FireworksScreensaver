@@ -499,7 +499,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, INT iCmdShow
             NULL);                  // creation parameters
     }
 
-    ShowCursor(false);
+    ShowCursor(isPreview);
+
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
 
